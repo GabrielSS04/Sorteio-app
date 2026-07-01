@@ -12,7 +12,8 @@ export default async function EditRafflePage({
   const { raffleId } = await params;
 
   const raffleRows = (await sql`
-    select id, title, description, type, total_slots, draw_date, slot_price
+    select id, title, description, type, total_slots, draw_date, slot_price,
+           promo_quantity, promo_price
     from raffles
     where id = ${raffleId}
     limit 1

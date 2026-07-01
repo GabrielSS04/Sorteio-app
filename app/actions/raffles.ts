@@ -45,6 +45,8 @@ export async function createRaffle(
     type,
     totalSlots: formData.get("totalSlots") || undefined,
     slotPrice: formData.get("slotPrice") || undefined,
+    promoQuantity: formData.get("promoQuantity") || undefined,
+    promoPrice: formData.get("promoPrice") || undefined,
     drawDate: formData.get("drawDate") ?? "",
     prizes: prizeRows,
     names: type === "names" ? splitLines(formData.get("names")) : undefined,
@@ -54,7 +56,8 @@ export async function createRaffle(
     return { fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
   }
 
-  const { title, description, drawDate, prizes, slotPrice } = parsed.data;
+  const { title, description, drawDate, prizes, slotPrice, promoQuantity, promoPrice } =
+    parsed.data;
   const prizeDescriptions = prizes.map((p) => p.description);
   const prizeImages = prizes.map((p) => p.imageUrl || null);
 
@@ -68,13 +71,15 @@ export async function createRaffle(
   // Tudo em uma única instrução -> atômico (sem sorteio pela metade).
   const rows = (await sql`
     with new_raffle as (
-      insert into raffles (title, description, type, total_slots, slot_price, draw_date, status, created_by)
+      insert into raffles (title, description, type, total_slots, slot_price, promo_quantity, promo_price, draw_date, status, created_by)
       values (
         ${title},
         ${description || null},
         ${parsed.data.type},
         ${totalSlots},
         ${slotPrice ?? null},
+        ${promoQuantity ?? null},
+        ${promoPrice ?? null},
         ${drawDate || null}::timestamptz,
         'open',
         ${admin.id}
@@ -131,6 +136,8 @@ export async function updateRaffle(
     title: formData.get("title"),
     description: formData.get("description") ?? "",
     slotPrice: formData.get("slotPrice") || undefined,
+    promoQuantity: formData.get("promoQuantity") || undefined,
+    promoPrice: formData.get("promoPrice") || undefined,
     drawDate: formData.get("drawDate") ?? "",
     prizes: prizeRows,
   });
@@ -139,13 +146,16 @@ export async function updateRaffle(
     return { fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
   }
 
-  const { raffleId, title, description, slotPrice, drawDate, prizes } = parsed.data;
+  const { raffleId, title, description, slotPrice, promoQuantity, promoPrice, drawDate, prizes } =
+    parsed.data;
 
   await sql`
     update raffles
     set title = ${title},
         description = ${description || null},
         slot_price = ${slotPrice ?? null},
+        promo_quantity = ${promoQuantity ?? null},
+        promo_price = ${promoPrice ?? null},
         draw_date = ${drawDate || null}::timestamptz
     where id = ${raffleId}
   `;
@@ -169,6 +179,21 @@ export async function updateRaffle(
   revalidatePath("/admin");
   revalidatePath("/");
   redirect(`/admin/raffles/${raffleId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Excluir rifa (admin) — apaga em cascata números, prêmios e ganhadores
+// ---------------------------------------------------------------------------
+export async function deleteRaffle(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const raffleId = String(formData.get("raffleId") ?? "");
+  if (!raffleId) return;
+
+  await sql`delete from raffles where id = ${raffleId}`;
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  redirect("/admin");
 }
 
 // ---------------------------------------------------------------------------

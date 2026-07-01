@@ -35,6 +35,17 @@ export function formatPrice(value: string | number | null | undefined): string |
   return brl.format(n);
 }
 
+/** Rótulo da promoção em combo, ex.: "4 por R$ 15,00". Null se não houver. */
+export function formatPromo(
+  qty: number | string | null | undefined,
+  price: number | string | null | undefined,
+): string | null {
+  const n = qty == null || qty === "" ? null : Number(qty);
+  const p = formatPrice(price);
+  if (!n || Number.isNaN(n) || !p) return null;
+  return `${n} por ${p}`;
+}
+
 export const STATUS_LABEL: Record<string, string> = {
   draft: "Rascunho",
   open: "Aberto",

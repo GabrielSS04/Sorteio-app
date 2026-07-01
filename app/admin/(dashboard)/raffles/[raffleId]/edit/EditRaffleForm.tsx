@@ -19,6 +19,8 @@ export type EditRaffle = {
   total_slots: number;
   draw_date: string | null;
   slot_price: string | null;
+  promo_quantity: number | null;
+  promo_price: string | null;
 };
 
 function FieldError({ state, name }: { state: UpdateRaffleState; name: string }) {
@@ -100,6 +102,38 @@ export function EditRaffleForm({
           />
         </div>
       </label>
+
+      <div className="flex flex-col gap-1.5 text-sm font-medium">
+        Promoção em combo (opcional)
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            name="promoQuantity"
+            type="number"
+            min={2}
+            step={1}
+            inputMode="numeric"
+            placeholder="Qtd."
+            defaultValue={raffle.promo_quantity ?? ""}
+            className={`${inputCls} w-24`}
+          />
+          <span className="text-sm text-zinc-500">{unit}s por R$</span>
+          <input
+            name="promoPrice"
+            type="number"
+            min={0}
+            step="0.01"
+            inputMode="decimal"
+            placeholder="0,00"
+            defaultValue={raffle.promo_price ?? ""}
+            className={`${inputCls} w-32`}
+          />
+        </div>
+        <span className="text-xs font-normal text-zinc-500">
+          Ex.: 4 {unit}s por R$ 15. Deixe em branco se não houver.
+        </span>
+        <FieldError state={state} name="promoQuantity" />
+        <FieldError state={state} name="promoPrice" />
+      </div>
 
       <PrizesField defaultPrizes={prizes} error={state?.fieldErrors?.prizes?.[0]} />
 

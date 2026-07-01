@@ -2,10 +2,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { sql } from "@/lib/db";
-import { drawDateLabel, formatPrice, STATUS_LABEL, TYPE_LABEL } from "@/lib/format";
+import { drawDateLabel, formatPrice, formatPromo, STATUS_LABEL, TYPE_LABEL } from "@/lib/format";
 import { setRaffleStatus } from "@/app/actions/raffles";
 import { RaffleGrid, type Slot } from "./RaffleGrid";
 import { DrawControls } from "./DrawControls";
+import { DeleteRaffleButton } from "./DeleteRaffleButton";
 
 type Raffle = {
   id: string;
@@ -16,6 +17,8 @@ type Raffle = {
   total_slots: number;
   draw_date: string | null;
   slot_price: string | null;
+  promo_quantity: number | null;
+  promo_price: string | null;
 };
 
 export default async function RaffleDetailPage({
@@ -26,7 +29,8 @@ export default async function RaffleDetailPage({
   const { raffleId } = await params;
 
   const raffleRows = (await sql`
-    select id, title, description, type, status, total_slots, draw_date, slot_price
+    select id, title, description, type, status, total_slots, draw_date, slot_price,
+           promo_quantity, promo_price
     from raffles
     where id = ${raffleId}
     limit 1
@@ -70,6 +74,7 @@ export default async function RaffleDetailPage({
   const collected = raffle.slot_price
     ? formatPrice(Number(raffle.slot_price) * taken)
     : null;
+  const promo = formatPromo(raffle.promo_quantity, raffle.promo_price);
 
   return (
     <div>
@@ -125,6 +130,7 @@ export default async function RaffleDetailPage({
         <Info label="Disponíveis" value={String(raffle.total_slots - taken)} />
         <Info label="Data do sorteio" value={drawDateLabel(raffle.draw_date)} />
         {price && <Info label={`Valor por ${unitLabel}`} value={price} />}
+        {promo && <Info label="Promoção" value={promo} />}
         {collected && <Info label="Arrecadado" value={collected} />}
       </dl>
 
@@ -197,6 +203,18 @@ export default async function RaffleDetailPage({
         {raffle.type === "numbers" ? "Números" : "Nomes"} — clique para marcar
       </h2>
       <RaffleGrid raffleId={raffle.id} slots={slots} />
+
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 p-4 dark:border-red-950">
+        <div>
+          <h2 className="text-sm font-semibold text-red-700 dark:text-red-400">
+            Excluir rifa
+          </h2>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            Remove a rifa e tudo ligado a ela (números/nomes, prêmios e resultado).
+          </p>
+        </div>
+        <DeleteRaffleButton raffleId={raffle.id} />
+      </div>
     </div>
   );
 }

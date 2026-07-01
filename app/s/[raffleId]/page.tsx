@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { sql } from "@/lib/db";
-import { drawDateLabel, formatPrice, TYPE_LABEL } from "@/lib/format";
+import { drawDateLabel, formatPrice, formatPromo, TYPE_LABEL } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,8 @@ type Raffle = {
   total_slots: number;
   draw_date: string | null;
   slot_price: string | null;
+  promo_quantity: number | null;
+  promo_price: string | null;
 };
 
 export default async function PublicRafflePage({
@@ -25,7 +27,8 @@ export default async function PublicRafflePage({
   const { raffleId } = await params;
 
   const raffleRows = (await sql`
-    select id, title, description, type, status, total_slots, draw_date, slot_price
+    select id, title, description, type, status, total_slots, draw_date, slot_price,
+           promo_quantity, promo_price
     from raffles
     where id = ${raffleId}
     limit 1
@@ -89,6 +92,11 @@ export default async function PublicRafflePage({
           <span>
             Valor: {formatPrice(raffle.slot_price)} por{" "}
             {raffle.type === "numbers" ? "número" : "nome"}
+          </span>
+        )}
+        {formatPromo(raffle.promo_quantity, raffle.promo_price) && (
+          <span className="font-medium text-amber-700 dark:text-amber-400">
+            🔥 Promo: {formatPromo(raffle.promo_quantity, raffle.promo_price)}
           </span>
         )}
         <span className="font-medium text-emerald-700 dark:text-emerald-400">
