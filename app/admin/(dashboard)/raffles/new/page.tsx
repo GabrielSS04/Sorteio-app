@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { createRaffle, type CreateRaffleState } from "@/app/actions/raffles";
+import { generateNames, NAME_POOL } from "@/lib/names";
 
 const inputCls =
   "h-11 rounded-lg border border-zinc-300 bg-transparent px-3 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:focus:border-zinc-300";
@@ -34,6 +35,10 @@ export default function NewRafflePage() {
   );
   const [type, setType] = useState<"numbers" | "names">("numbers");
   const [prizes, setPrizes] = useState<string[]>([""]);
+  const [names, setNames] = useState("");
+  const [genCount, setGenCount] = useState(20);
+
+  const nameCount = names.split("\n").map((n) => n.trim()).filter(Boolean).length;
 
   return (
     <div>
@@ -99,16 +104,54 @@ export default function NewRafflePage() {
             <FieldError state={state} name="totalSlots" />
           </label>
         ) : (
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Nomes (um por linha)
+          <div className="flex flex-col gap-2 text-sm font-medium">
+            Nomes
+            <div className="flex flex-wrap items-end gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+              <label className="flex flex-col gap-1 text-xs font-normal text-zinc-500">
+                Gerar automaticamente
+                <input
+                  type="number"
+                  min={1}
+                  max={NAME_POOL.length}
+                  value={genCount}
+                  onChange={(e) => setGenCount(Number(e.target.value))}
+                  className={`${inputCls} w-28`}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setNames(generateNames(genCount).join("\n"))}
+                className="h-11 rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+              >
+                Gerar nomes
+              </button>
+              <span className="text-xs font-normal text-zinc-500">
+                até {NAME_POOL.length} nomes distintos, sem repetir
+              </span>
+            </div>
+
             <textarea
               name="names"
-              rows={6}
-              placeholder={"João\nMaria\nPedro"}
+              rows={8}
+              value={names}
+              onChange={(e) => setNames(e.target.value)}
+              placeholder={"Clique em “Gerar nomes” ou digite um por linha…"}
               className="rounded-lg border border-zinc-300 bg-transparent p-3 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:focus:border-zinc-300"
             />
+            <div className="flex items-center justify-between text-xs font-normal text-zinc-500">
+              <span>{nameCount} nome(s) — editável antes de criar</span>
+              {names && (
+                <button
+                  type="button"
+                  onClick={() => setNames("")}
+                  className="hover:underline"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
             <FieldError state={state} name="names" />
-          </label>
+          </div>
         )}
 
         <div className="flex flex-col gap-2 text-sm font-medium">
