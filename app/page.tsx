@@ -9,26 +9,51 @@ type Row = {
   id: string;
   title: string;
   type: string;
+  status: string;
   draw_date: string | null;
   slot_price: string | null;
   available: number;
 };
 
+function StatusTag({ status, available }: { status: string; available: number }) {
+  if (status === "open") {
+    return (
+      <span className="whitespace-nowrap text-sm font-medium text-emerald-700 dark:text-emerald-400">
+        {available} disponíveis
+      </span>
+    );
+  }
+  if (status === "closed") {
+    return (
+      <span className="whitespace-nowrap text-sm font-medium text-amber-700 dark:text-amber-400">
+        ⏳ Sorteio em breve
+      </span>
+    );
+  }
+  return (
+    <span className="whitespace-nowrap text-sm font-medium text-emerald-700 dark:text-emerald-400">
+      🎉 Sorteada
+    </span>
+  );
+}
+
 export default async function Home() {
   const raffles = (await sql`
-    select r.id, r.title, r.type, r.draw_date, r.slot_price,
+    select r.id, r.title, r.type, r.status, r.draw_date, r.slot_price,
            count(s.*) filter (where s.status = 'available')::int as available
     from raffles r
     left join raffle_slots s on s.raffle_id = r.id
-    where r.status = 'open'
+    where r.status in ('open', 'closed', 'drawn')
     group by r.id
-    order by r.created_at desc
+    order by
+      case r.status when 'open' then 0 when 'closed' then 1 else 2 end,
+      r.created_at desc
   `) as Row[];
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-12">
+    <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:py-12">
       <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Sorteios abertos</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Sorteios</h1>
         <Link href="/admin" className="text-sm text-zinc-500 hover:underline">
           Área do admin
         </Link>
@@ -36,7 +61,7 @@ export default async function Home() {
 
       {raffles.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 p-12 text-center text-zinc-500 dark:border-zinc-700">
-          Nenhum sorteio aberto no momento.
+          Nenhum sorteio no momento.
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -44,7 +69,7 @@ export default async function Home() {
             <li key={r.id}>
               <Link
                 href={`/s/${r.id}`}
-                className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-600"
+                className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-600"
               >
                 <div>
                   <p className="font-medium">{r.title}</p>
@@ -53,9 +78,7 @@ export default async function Home() {
                     {formatPrice(r.slot_price) && ` · ${formatPrice(r.slot_price)}`}
                   </p>
                 </div>
-                <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                  {r.available} disponíveis
-                </span>
+                <StatusTag status={r.status} available={r.available} />
               </Link>
             </li>
           ))}

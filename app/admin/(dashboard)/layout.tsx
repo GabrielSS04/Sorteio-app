@@ -16,8 +16,8 @@ export default async function AdminLayout({
           <Link href="/admin" className="text-sm font-semibold tracking-tight">
             Painel de Sorteios
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-zinc-500">
+          <div className="flex items-center gap-3">
+            <span className="hidden text-sm text-zinc-500 sm:inline">
               {admin.name ?? admin.username}
             </span>
             <form action={logout}>
@@ -31,7 +31,7 @@ export default async function AdminLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">{children}</main>
     </div>
   );
 }

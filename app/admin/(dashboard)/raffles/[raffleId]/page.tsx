@@ -78,7 +78,7 @@ export default async function RaffleDetailPage({
 
   return (
     <div>
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/admin" className="text-sm text-zinc-500 hover:underline">
             ← Sorteios

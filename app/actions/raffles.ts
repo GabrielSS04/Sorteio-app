@@ -258,6 +258,46 @@ export async function markSlot(
   return { ok: true };
 }
 
+// Editar os dados do comprador de um número/nome já marcado.
+export async function editSlot(
+  _prev: MarkSlotState,
+  formData: FormData,
+): Promise<MarkSlotState> {
+  await requireAdmin();
+
+  const parsed = markSlotSchema.safeParse({
+    slotId: formData.get("slotId"),
+    raffleId: formData.get("raffleId"),
+    buyerName: formData.get("buyerName"),
+    buyerPhone: formData.get("buyerPhone"),
+  });
+
+  if (!parsed.success) {
+    const first = Object.values(parsed.error.flatten().fieldErrors)[0]?.[0];
+    return { error: first ?? "Dados inválidos." };
+  }
+
+  const { slotId, raffleId, buyerName, buyerPhone } = parsed.data;
+
+  const updated = (await sql`
+    update raffle_slots
+    set buyer_name = ${buyerName},
+        buyer_phone = ${buyerPhone}
+    where id = ${slotId}
+      and raffle_id = ${raffleId}
+      and status = 'taken'
+    returning id
+  `) as { id: string }[];
+
+  if (updated.length === 0) {
+    return { error: "Não foi possível editar (número não está marcado)." };
+  }
+
+  revalidatePath(`/admin/raffles/${raffleId}`);
+  revalidatePath(`/s/${raffleId}`);
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Encerrar / reabrir rifa (admin)
 // ---------------------------------------------------------------------------

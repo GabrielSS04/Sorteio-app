@@ -3,6 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { sql } from "@/lib/db";
 import { drawDateLabel, formatPrice, formatPromo, TYPE_LABEL } from "@/lib/format";
+import { DrawReveal } from "./DrawReveal";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,7 @@ export default async function PublicRafflePage({
   `) as { position: number; description: string; image_url: string | null }[];
 
   // Ganhadores (visíveis ao público apenas depois do sorteio).
-  const winners =
+  const winnerRows =
     raffle.status === "drawn"
       ? ((await sql`
           select pz.position, pz.description, sl.label, sl.buyer_name
@@ -71,8 +72,23 @@ export default async function PublicRafflePage({
         }[])
       : [];
 
+  const winners = winnerRows.map((w) => ({
+    position: w.position,
+    description: w.description,
+    label: w.label,
+    buyerName: w.buyer_name,
+  }));
+
+  // Pool de rótulos para a animação "rodar" (só após o sorteio).
+  const spinPool =
+    raffle.status === "drawn"
+      ? ((await sql`
+          select label from raffle_slots where raffle_id = ${raffleId}
+        `) as { label: string }[]).map((r) => r.label)
+      : [];
+
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-12">
+    <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:py-12">
       <Link href="/" className="text-sm text-zinc-500 hover:underline">
         ← Todos os sorteios
       </Link>
@@ -81,7 +97,8 @@ export default async function PublicRafflePage({
 
       {raffle.status === "closed" && (
         <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
-          Esta rifa está encerrada. Aguardando o sorteio.
+          ⏳ Rifa encerrada — o sorteio será realizado em breve. Volte para ver o
+          resultado!
         </p>
       )}
 
@@ -99,34 +116,15 @@ export default async function PublicRafflePage({
             🔥 Promo: {formatPromo(raffle.promo_quantity, raffle.promo_price)}
           </span>
         )}
-        <span className="font-medium text-emerald-700 dark:text-emerald-400">
-          {available.length} de {raffle.total_slots} disponíveis
-        </span>
+        {raffle.status === "open" && (
+          <span className="font-medium text-emerald-700 dark:text-emerald-400">
+            {available.length} de {raffle.total_slots} disponíveis
+          </span>
+        )}
       </div>
 
       {raffle.status === "drawn" && winners.length > 0 && (
-        <div className="mt-6 rounded-xl border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-          <h2 className="mb-3 text-base font-semibold text-emerald-800 dark:text-emerald-300">
-            🎉 Resultado do sorteio
-          </h2>
-          <ul className="flex flex-col gap-2">
-            {winners.map((w) => (
-              <li
-                key={w.position}
-                className="flex flex-wrap items-center justify-between gap-2 text-sm"
-              >
-                <span className="text-emerald-900 dark:text-emerald-200">
-                  <span className="font-medium">{w.position}º</span> {w.description}
-                </span>
-                <span className="font-semibold text-emerald-800 dark:text-emerald-300">
-                  {raffle.type === "numbers" ? "Nº " : ""}
-                  {w.label}
-                  {w.buyer_name ? ` — ${w.buyer_name}` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <DrawReveal winners={winners} pool={spinPool} type={raffle.type} />
       )}
 
       {prizes.length > 0 && (
@@ -158,25 +156,29 @@ export default async function PublicRafflePage({
         </div>
       )}
 
-      <h2 className="mb-3 mt-8 text-sm font-semibold text-zinc-500">
-        {raffle.type === "numbers" ? "Números disponíveis" : "Nomes disponíveis"}
-      </h2>
+      {raffle.status === "open" && (
+        <>
+          <h2 className="mb-3 mt-8 text-sm font-semibold text-zinc-500">
+            {raffle.type === "numbers" ? "Números disponíveis" : "Nomes disponíveis"}
+          </h2>
 
-      {available.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-zinc-300 p-12 text-center text-zinc-500 dark:border-zinc-700">
-          Tudo marcado! Não há mais disponíveis.
-        </p>
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-2">
-          {available.map((s) => (
-            <div
-              key={s.label}
-              className="flex h-12 items-center justify-center rounded-lg border border-zinc-300 px-1 text-center text-sm font-medium dark:border-zinc-700"
-            >
-              <span className="w-full truncate">{s.label}</span>
+          {available.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-300 p-12 text-center text-zinc-500 dark:border-zinc-700">
+              Tudo marcado! Não há mais disponíveis.
+            </p>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] sm:gap-1.5">
+              {available.map((s) => (
+                <div
+                  key={s.label}
+                  className="flex h-9 items-center justify-center rounded-md border border-zinc-300 px-0.5 text-center text-xs font-medium dark:border-zinc-700"
+                >
+                  <span className="w-full truncate">{s.label}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );
