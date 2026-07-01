@@ -13,6 +13,28 @@ export function formatDate(value: string | Date | null | undefined): string {
   return dateFmt.format(d);
 }
 
+/**
+ * Rótulo da data do sorteio. Sem data definida, a rifa termina quando todos os
+ * números/nomes forem vendidos.
+ */
+export function drawDateLabel(value: string | Date | null | undefined): string {
+  if (!value) return "Ao vender todos";
+  return formatDate(value);
+}
+
+const brl = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
+/** Formata um valor em reais. Aceita number, string (numeric do pg) ou null. */
+export function formatPrice(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (Number.isNaN(n)) return null;
+  return brl.format(n);
+}
+
 export const STATUS_LABEL: Record<string, string> = {
   draft: "Rascunho",
   open: "Aberto",

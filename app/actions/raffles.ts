@@ -27,13 +27,26 @@ export async function createRaffle(
   const admin = await requireAdmin();
 
   const type = formData.get("type");
+
+  // Prêmios: descrição e imagem vêm em arrays paralelos (uma entrada por linha
+  // do formulário, na mesma ordem). Pareamos por índice e descartamos os vazios.
+  const prizeDescs = formData.getAll("prizes").map(String);
+  const prizeImgs = formData.getAll("prizeImages").map(String);
+  const prizeRows = prizeDescs
+    .map((description, i) => ({
+      description: description.trim(),
+      imageUrl: (prizeImgs[i] ?? "").trim(),
+    }))
+    .filter((p) => p.description.length > 0);
+
   const parsed = createRaffleSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description") ?? "",
     type,
     totalSlots: formData.get("totalSlots") || undefined,
+    slotPrice: formData.get("slotPrice") || undefined,
     drawDate: formData.get("drawDate") ?? "",
-    prizes: formData.getAll("prizes").map(String).map((s) => s.trim()).filter(Boolean),
+    prizes: prizeRows,
     names: type === "names" ? splitLines(formData.get("names")) : undefined,
   });
 
@@ -41,7 +54,9 @@ export async function createRaffle(
     return { fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
   }
 
-  const { title, description, drawDate, prizes } = parsed.data;
+  const { title, description, drawDate, prizes, slotPrice } = parsed.data;
+  const prizeDescriptions = prizes.map((p) => p.description);
+  const prizeImages = prizes.map((p) => p.imageUrl || null);
 
   // Rótulos dos slots: números 1..N ou a lista de nomes.
   const slotLabels =
@@ -53,12 +68,13 @@ export async function createRaffle(
   // Tudo em uma única instrução -> atômico (sem sorteio pela metade).
   const rows = (await sql`
     with new_raffle as (
-      insert into raffles (title, description, type, total_slots, draw_date, status, created_by)
+      insert into raffles (title, description, type, total_slots, slot_price, draw_date, status, created_by)
       values (
         ${title},
         ${description || null},
         ${parsed.data.type},
         ${totalSlots},
+        ${slotPrice ?? null},
         ${drawDate || null}::timestamptz,
         'open',
         ${admin.id}
@@ -66,10 +82,11 @@ export async function createRaffle(
       returning id
     ),
     ins_prizes as (
-      insert into raffle_prizes (raffle_id, position, description)
-      select nr.id, ord, descr
+      insert into raffle_prizes (raffle_id, position, description, image_url)
+      select nr.id, ord, descr, img
       from new_raffle nr,
-           unnest(${prizes}::text[]) with ordinality as t(descr, ord)
+           unnest(${prizeDescriptions}::text[], ${prizeImages}::text[])
+             with ordinality as t(descr, img, ord)
       returning 1
     ),
     ins_slots as (
@@ -130,9 +147,105 @@ export async function markSlot(
     return { error: "Este número/nome já está marcado." };
   }
 
+  // Rifa sem data definida encerra sozinha quando o último número/nome é vendido.
+  await sql`
+    update raffles
+    set status = 'closed'
+    where id = ${raffleId}
+      and status = 'open'
+      and draw_date is null
+      and not exists (
+        select 1 from raffle_slots
+        where raffle_id = ${raffleId} and status = 'available'
+      )
+  `;
+
   revalidatePath(`/admin/raffles/${raffleId}`);
   revalidatePath(`/s/${raffleId}`);
+  revalidatePath("/");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Encerrar / reabrir rifa (admin)
+// ---------------------------------------------------------------------------
+export async function setRaffleStatus(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const raffleId = String(formData.get("raffleId") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (!raffleId || (status !== "open" && status !== "closed")) return;
+
+  await sql`
+    update raffles
+    set status = ${status}
+    where id = ${raffleId}
+  `;
+
+  revalidatePath(`/admin/raffles/${raffleId}`);
+  revalidatePath("/admin");
+  revalidatePath(`/s/${raffleId}`);
+  revalidatePath("/");
+}
+
+// ---------------------------------------------------------------------------
+// Sortear (admin) — escolhe 1 ganhador por prêmio entre os VENDIDOS, sem repetir
+// ---------------------------------------------------------------------------
+export type DrawState = { ok?: boolean; error?: string; winners?: number } | undefined;
+
+export async function drawRaffle(
+  _prev: DrawState,
+  formData: FormData,
+): Promise<DrawState> {
+  await requireAdmin();
+  const raffleId = String(formData.get("raffleId") ?? "");
+  if (!raffleId) return { error: "Rifa inválida." };
+
+  const info = (await sql`
+    select
+      r.status,
+      (select count(*) from raffle_prizes where raffle_id = r.id)::int as prizes,
+      (select count(*) from raffle_slots where raffle_id = r.id and status = 'taken')::int as taken
+    from raffles r
+    where r.id = ${raffleId}
+    limit 1
+  `) as { status: string; prizes: number; taken: number }[];
+
+  const row = info[0];
+  if (!row) return { error: "Rifa não encontrada." };
+  if (row.status !== "closed" && row.status !== "drawn") {
+    return { error: "Encerre a rifa antes de realizar o sorteio." };
+  }
+  if (row.prizes === 0) return { error: "A rifa não tem prêmios cadastrados." };
+  if (row.taken === 0) return { error: "Nenhum número/nome foi vendido para sortear." };
+
+  // Uma única instrução, atômica: sorteia (order by random), grava os ganhadores
+  // (ON CONFLICT permite re-sortear) e marca a rifa como 'drawn'.
+  await sql`
+    with prize_list as (
+      select id as prize_id, row_number() over (order by position) as rn
+      from raffle_prizes
+      where raffle_id = ${raffleId}
+    ),
+    picked as (
+      select id as slot_id, row_number() over (order by random()) as rn
+      from raffle_slots
+      where raffle_id = ${raffleId} and status = 'taken'
+    ),
+    upd as (
+      update raffles set status = 'drawn' where id = ${raffleId} returning 1
+    )
+    insert into raffle_winners (raffle_id, prize_id, slot_id)
+    select ${raffleId}, p.prize_id, k.slot_id
+    from prize_list p
+    join picked k on p.rn = k.rn
+    on conflict (prize_id) do update
+      set slot_id = excluded.slot_id, drawn_at = now()
+  `;
+
+  revalidatePath(`/admin/raffles/${raffleId}`);
+  revalidatePath(`/s/${raffleId}`);
+  revalidatePath("/");
+  return { ok: true, winners: Math.min(row.prizes, row.taken) };
 }
 
 export async function unmarkSlot(formData: FormData): Promise<void> {

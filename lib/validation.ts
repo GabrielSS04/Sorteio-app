@@ -19,9 +19,15 @@ export const createRaffleSchema = z
     description: z.string().trim().max(1000).optional().or(z.literal("")),
     type: raffleTypeSchema,
     totalSlots: z.coerce.number().int().positive().max(100000).optional(),
+    slotPrice: z.coerce.number().nonnegative().max(1000000).optional(),
     drawDate: z.string().trim().optional().or(z.literal("")),
     prizes: z
-      .array(z.string().trim().min(1))
+      .array(
+        z.object({
+          description: z.string().trim().min(1),
+          imageUrl: z.string().url().max(2048).optional().or(z.literal("")),
+        }),
+      )
       .min(1, "Informe ao menos um prêmio."),
     names: z.array(z.string().trim().min(1)).optional(),
   })

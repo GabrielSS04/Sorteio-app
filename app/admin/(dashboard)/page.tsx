@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { sql } from "@/lib/db";
-import { formatDate, STATUS_LABEL, TYPE_LABEL } from "@/lib/format";
+import { drawDateLabel, STATUS_LABEL, TYPE_LABEL } from "@/lib/format";
 
 type RaffleRow = {
   id: string;
@@ -49,7 +49,7 @@ export default async function AdminDashboard() {
                 <div>
                   <p className="font-medium">{r.title}</p>
                   <p className="mt-0.5 text-sm text-zinc-500">
-                    {TYPE_LABEL[r.type]} · {r.taken}/{r.total_slots} marcados · Sorteio: {formatDate(r.draw_date)}
+                    {TYPE_LABEL[r.type]} · {r.taken}/{r.total_slots} marcados · Sorteio: {drawDateLabel(r.draw_date)}
                   </p>
                 </div>
                 <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { sql } from "@/lib/db";
-import { formatDate, TYPE_LABEL } from "@/lib/format";
+import { drawDateLabel, formatPrice, TYPE_LABEL } from "@/lib/format";
 
 // Reflete a disponibilidade em tempo real (dados mudam quando o admin marca).
 export const dynamic = "force-dynamic";
@@ -10,12 +10,13 @@ type Row = {
   title: string;
   type: string;
   draw_date: string | null;
+  slot_price: string | null;
   available: number;
 };
 
 export default async function Home() {
   const raffles = (await sql`
-    select r.id, r.title, r.type, r.draw_date,
+    select r.id, r.title, r.type, r.draw_date, r.slot_price,
            count(s.*) filter (where s.status = 'available')::int as available
     from raffles r
     left join raffle_slots s on s.raffle_id = r.id
@@ -48,7 +49,8 @@ export default async function Home() {
                 <div>
                   <p className="font-medium">{r.title}</p>
                   <p className="mt-0.5 text-sm text-zinc-500">
-                    {TYPE_LABEL[r.type]} · Sorteio: {formatDate(r.draw_date)}
+                    {TYPE_LABEL[r.type]} · Sorteio: {drawDateLabel(r.draw_date)}
+                    {formatPrice(r.slot_price) && ` · ${formatPrice(r.slot_price)}`}
                   </p>
                 </div>
                 <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
