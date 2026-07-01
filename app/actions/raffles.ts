@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
-import { createRaffleSchema, markSlotSchema } from "@/lib/validation";
+import { createRaffleSchema, markSlotSchema, updateRaffleSchema } from "@/lib/validation";
 
 // ---------------------------------------------------------------------------
 // Criar sorteio
@@ -101,6 +101,73 @@ export async function createRaffle(
 
   const raffleId = rows[0].id;
   revalidatePath("/admin");
+  redirect(`/admin/raffles/${raffleId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Editar rifa (admin) — só as infos: título, descrição, valor, data e prêmios
+// ---------------------------------------------------------------------------
+export type UpdateRaffleState =
+  | { error?: string; fieldErrors?: Record<string, string[]> }
+  | undefined;
+
+export async function updateRaffle(
+  _prev: UpdateRaffleState,
+  formData: FormData,
+): Promise<UpdateRaffleState> {
+  await requireAdmin();
+
+  const prizeDescs = formData.getAll("prizes").map(String);
+  const prizeImgs = formData.getAll("prizeImages").map(String);
+  const prizeRows = prizeDescs
+    .map((description, i) => ({
+      description: description.trim(),
+      imageUrl: (prizeImgs[i] ?? "").trim(),
+    }))
+    .filter((p) => p.description.length > 0);
+
+  const parsed = updateRaffleSchema.safeParse({
+    raffleId: formData.get("raffleId"),
+    title: formData.get("title"),
+    description: formData.get("description") ?? "",
+    slotPrice: formData.get("slotPrice") || undefined,
+    drawDate: formData.get("drawDate") ?? "",
+    prizes: prizeRows,
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
+  }
+
+  const { raffleId, title, description, slotPrice, drawDate, prizes } = parsed.data;
+
+  await sql`
+    update raffles
+    set title = ${title},
+        description = ${description || null},
+        slot_price = ${slotPrice ?? null},
+        draw_date = ${drawDate || null}::timestamptz
+    where id = ${raffleId}
+  `;
+
+  // Sincroniza prêmios por posição (preserva IDs -> não perde ganhadores).
+  for (let i = 0; i < prizes.length; i++) {
+    await sql`
+      insert into raffle_prizes (raffle_id, position, description, image_url)
+      values (${raffleId}, ${i + 1}, ${prizes[i].description}, ${prizes[i].imageUrl || null})
+      on conflict (raffle_id, position) do update
+        set description = excluded.description, image_url = excluded.image_url
+    `;
+  }
+  await sql`
+    delete from raffle_prizes
+    where raffle_id = ${raffleId} and position > ${prizes.length}
+  `;
+
+  revalidatePath(`/admin/raffles/${raffleId}`);
+  revalidatePath(`/s/${raffleId}`);
+  revalidatePath("/admin");
+  revalidatePath("/");
   redirect(`/admin/raffles/${raffleId}`);
 }
 

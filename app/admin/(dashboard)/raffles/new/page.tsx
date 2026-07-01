@@ -3,12 +3,10 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import Image from "next/image";
-import { upload } from "@vercel/blob/client";
 import { createRaffle, type CreateRaffleState } from "@/app/actions/raffles";
 import { generateNames, NAME_POOL } from "@/lib/names";
-
-type Prize = { description: string; imageUrl: string; uploading?: boolean };
+import { DatePicker } from "../DatePicker";
+import { PrizesField } from "../PrizesField";
 
 const inputCls =
   "h-11 rounded-lg border border-zinc-300 bg-transparent px-3 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:focus:border-zinc-300";
@@ -38,29 +36,6 @@ export default function NewRafflePage() {
     undefined,
   );
   const [type, setType] = useState<"numbers" | "names">("numbers");
-  const [prizes, setPrizes] = useState<Prize[]>([{ description: "", imageUrl: "" }]);
-
-  function patchPrize(i: number, patch: Partial<Prize>) {
-    setPrizes((prev) => prev.map((p, j) => (j === i ? { ...p, ...patch } : p)));
-  }
-
-  async function handlePrizeFile(i: number, file: File | undefined) {
-    if (!file) return;
-    patchPrize(i, { uploading: true });
-    try {
-      const blob = await upload(file.name, file, {
-        access: "public",
-        handleUploadUrl: "/api/prize-upload",
-      });
-      patchPrize(i, { imageUrl: blob.url, uploading: false });
-    } catch (err) {
-      patchPrize(i, { uploading: false });
-      alert(
-        "Falha no upload da imagem: " +
-          (err instanceof Error ? err.message : "erro desconhecido"),
-      );
-    }
-  }
   const [names, setNames] = useState("");
   const [genCount, setGenCount] = useState(20);
   const [nameMode, setNameMode] = useState<"manual" | "auto">("manual");
@@ -220,86 +195,11 @@ export default function NewRafflePage() {
           </div>
         </label>
 
-        <div className="flex flex-col gap-3 text-sm font-medium">
-          Prêmios
-          {prizes.map((prize, i) => (
-            <div
-              key={i}
-              className="flex gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
-            >
-              {/* Preview / botão de imagem */}
-              <div className="flex flex-col items-center gap-1">
-                <div className="relative h-20 w-20 overflow-hidden rounded-lg border border-dashed border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
-                  {prize.imageUrl ? (
-                    <Image
-                      src={prize.imageUrl}
-                      alt={`Imagem do ${i + 1}º prêmio`}
-                      fill
-                      sizes="80px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full items-center justify-center text-[10px] text-zinc-400">
-                      {prize.uploading ? "Enviando…" : "sem imagem"}
-                    </span>
-                  )}
-                </div>
-                <label className="cursor-pointer text-[11px] font-normal text-zinc-600 hover:underline dark:text-zinc-400">
-                  {prize.imageUrl ? "Trocar" : "Adicionar imagem"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={prize.uploading}
-                    onChange={(e) => handlePrizeFile(i, e.target.files?.[0])}
-                  />
-                </label>
-                {prize.imageUrl && (
-                  <button
-                    type="button"
-                    onClick={() => patchPrize(i, { imageUrl: "" })}
-                    className="text-[11px] font-normal text-red-600 hover:underline dark:text-red-400"
-                  >
-                    Remover img
-                  </button>
-                )}
-              </div>
-
-              {/* Descrição + campo oculto com a URL da imagem */}
-              <div className="flex flex-1 flex-col gap-2">
-                <input
-                  name="prizes"
-                  value={prize.description}
-                  onChange={(e) => patchPrize(i, { description: e.target.value })}
-                  placeholder={`${i + 1}º prêmio`}
-                  className={inputCls}
-                />
-                <input type="hidden" name="prizeImages" value={prize.imageUrl} />
-                {prizes.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => setPrizes(prizes.filter((_, j) => j !== i))}
-                    className="self-start text-xs font-normal text-zinc-500 hover:underline"
-                  >
-                    Remover prêmio
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => setPrizes([...prizes, { description: "", imageUrl: "" }])}
-            className="self-start text-sm text-zinc-600 hover:underline dark:text-zinc-400"
-          >
-            + Adicionar prêmio
-          </button>
-          <FieldError state={state} name="prizes" />
-        </div>
+        <PrizesField error={state?.fieldErrors?.prizes?.[0]} />
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
           Data do sorteio (opcional)
-          <input name="drawDate" type="datetime-local" className={inputCls} />
+          <DatePicker name="drawDate" />
           <span className="text-xs font-normal text-zinc-500">
             Deixe em branco para a rifa encerrar automaticamente quando todos os
             números/nomes forem vendidos.

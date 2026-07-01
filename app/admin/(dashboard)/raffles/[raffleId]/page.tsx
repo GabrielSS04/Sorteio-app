@@ -87,6 +87,12 @@ export default async function RaffleDetailPage({
           <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
             {STATUS_LABEL[raffle.status] ?? raffle.status}
           </span>
+          <Link
+            href={`/admin/raffles/${raffle.id}/edit`}
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+          >
+            Editar
+          </Link>
           {raffle.status === "open" ? (
             <form action={setRaffleStatus}>
               <input type="hidden" name="raffleId" value={raffle.id} />

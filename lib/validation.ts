@@ -59,6 +59,24 @@ export const createRaffleSchema = z
     }
   });
 
+// Edição da rifa: apenas as infos seguras (não mexe em tipo, quantidade nem
+// nos próprios números/nomes, que já existem e podem estar vendidos).
+export const updateRaffleSchema = z.object({
+  raffleId: z.string().uuid("Rifa inválida."),
+  title: z.string().trim().min(1, "Informe o título.").max(200),
+  description: z.string().trim().max(1000).optional().or(z.literal("")),
+  slotPrice: z.coerce.number().nonnegative().max(1000000).optional(),
+  drawDate: z.string().trim().optional().or(z.literal("")),
+  prizes: z
+    .array(
+      z.object({
+        description: z.string().trim().min(1),
+        imageUrl: z.string().url().max(2048).optional().or(z.literal("")),
+      }),
+    )
+    .min(1, "Informe ao menos um prêmio."),
+});
+
 export const markSlotSchema = z.object({
   slotId: z.string().uuid("Slot inválido."),
   raffleId: z.string().uuid("Sorteio inválido."),
