@@ -41,7 +41,7 @@ export function RaffleGrid({ raffleId, slots }: { raffleId: string; slots: Slot[
         className="mb-4 h-10 w-full max-w-sm rounded-lg border border-zinc-300 bg-transparent px-3 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:focus:border-zinc-300"
       />
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] sm:gap-1.5">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(1.75rem,1fr))] gap-1 sm:grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] sm:gap-1.5">
         {filtered.map((slot) => (
           <button
             key={slot.id}
@@ -52,7 +52,7 @@ export function RaffleGrid({ raffleId, slots }: { raffleId: string; slots: Slot[
                 ? `${slot.label} — ${slot.buyer_name ?? ""}`
                 : `${slot.label} — disponível`
             }
-            className={`flex h-9 items-center justify-center rounded-md border px-0.5 text-center text-xs font-medium transition-colors ${
+            className={`flex h-7 items-center justify-center rounded-md border px-0.5 text-center text-[10px] font-medium transition-colors sm:h-9 sm:text-xs ${
               slot.status === "taken"
                 ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                 : "border-zinc-300 hover:border-zinc-900 dark:border-zinc-700 dark:hover:border-zinc-300"

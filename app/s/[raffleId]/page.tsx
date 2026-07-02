@@ -167,11 +167,11 @@ export default async function PublicRafflePage({
               Tudo marcado! Não há mais disponíveis.
             </p>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] sm:gap-1.5">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(1.75rem,1fr))] gap-1 sm:grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] sm:gap-1.5">
               {available.map((s) => (
                 <div
                   key={s.label}
-                  className="flex h-9 items-center justify-center rounded-md border border-zinc-300 px-0.5 text-center text-xs font-medium dark:border-zinc-700"
+                  className="flex h-7 items-center justify-center rounded-md border border-zinc-300 px-0.5 text-center text-[10px] font-medium dark:border-zinc-700 sm:h-9 sm:text-xs"
                 >
                   <span className="w-full truncate">{s.label}</span>
                 </div>
